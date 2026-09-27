@@ -1,0 +1,35 @@
+{
+  "name": "dsh-voice-input",
+  "version": "1.0.0",
+  "description": "Voice Input plugin for DeepSeek Harness with real-time recording, pause, playback review, and OpenAI-compatible proxy transcription",
+  "author": "Tanvir Ahamed Likhon <likhonmain@gmail.com>",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/likhonmain/dsh-voice-input.git"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "voice-input",
+    "speech-to-text",
+    "transcription"
+  ],
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

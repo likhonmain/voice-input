@@ -1,0 +1,7 @@
+- insert:
+    - id: voice-input
+      name: 'dsh-voice-input'
+      config:
+        url: ''
+        apiKey: ''
+        model: 'gemini-3.8-flash-high'
