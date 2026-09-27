@@ -1,11 +1,55 @@
 // Host service for Voice Input plugin (dsh-voice-input)
+import fs from 'node:fs';
+import path from 'node:path';
+
 export const inject = ['webServer'];
 
+function getConfigFilePaths() {
+  const paths = [];
+  if (process.env.APPDATA) {
+    paths.push(path.join(process.env.APPDATA, 'dsh-desktop', 'voice-input-config.json'));
+  }
+  const home = process.env.USERPROFILE || process.env.HOME;
+  if (home) {
+    paths.push(path.join(home, '.dsh-voice-input-config.json'));
+  }
+  return paths;
+}
+
+function loadDiskConfig() {
+  for (const p of getConfigFilePaths()) {
+    try {
+      if (fs.existsSync(p)) {
+        const raw = fs.readFileSync(p, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
+function saveDiskConfig(cfg) {
+  for (const p of getConfigFilePaths()) {
+    try {
+      const dir = path.dirname(p);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(p, JSON.stringify(cfg, null, 2), 'utf8');
+      break;
+    } catch (e) {}
+  }
+}
+
 export function apply(ctx, config) {
+  const diskConfig = loadDiskConfig() || {};
   const currentConfig = {
-    url: (config?.url || '').replace(/\/+$/, ''),
-    apiKey: config?.apiKey || '',
-    model: config?.model || 'gemini-3.8-flash-high'
+    url: (diskConfig.url || config?.url || '').replace(/\/+$/, ''),
+    apiKey: diskConfig.apiKey || config?.apiKey || '',
+    model: diskConfig.model || config?.model || 'gemini-3.8-flash-high'
   };
 
   const parseJsonBody = (req) => new Promise((resolve, reject) => {
@@ -68,6 +112,7 @@ export function apply(ctx, config) {
               if (body.url !== undefined) currentConfig.url = String(body.url).trim().replace(/\/+$/, '');
               if (body.apiKey !== undefined) currentConfig.apiKey = String(body.apiKey).trim();
               if (body.model !== undefined) currentConfig.model = String(body.model).trim();
+              saveDiskConfig(currentConfig);
               sendJson(res, 200, { ok: true, config: currentConfig });
               return;
             }

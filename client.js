@@ -539,6 +539,27 @@ window.__ModuleLoader__.load({
         }
       }, [onActiveChange]);
 
+      // On startup: fetch saved config from host backend and synchronize with local state
+      useEffect(() => {
+        fetch('/api/voice-input/config')
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.ok && data.config) {
+              const serverConfig = data.config;
+              setConfig(prev => {
+                const merged = {
+                  url: serverConfig.url || prev.url || '',
+                  apiKey: serverConfig.apiKey || prev.apiKey || '',
+                  model: serverConfig.model || prev.model || 'gemini-3.8-flash-high'
+                };
+                saveConfig(merged);
+                return merged;
+              });
+            }
+          })
+          .catch(() => {});
+      }, []);
+
       // Reset when session changes
       useEffect(() => {
         cleanupAll();
@@ -873,8 +894,29 @@ window.__ModuleLoader__.load({
 
       // Settings modal
       const openSettings = () => {
-        setTempConfig({ ...config });
-        setSettingsOpen(true);
+        fetch('/api/voice-input/config')
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.ok && data.config) {
+              const serverConfig = data.config;
+              const merged = {
+                url: serverConfig.url || config.url || '',
+                apiKey: serverConfig.apiKey || config.apiKey || '',
+                model: serverConfig.model || config.model || 'gemini-3.8-flash-high'
+              };
+              setConfig(merged);
+              setTempConfig(merged);
+              saveConfig(merged);
+            } else {
+              setTempConfig({ ...config });
+            }
+          })
+          .catch(() => {
+            setTempConfig({ ...config });
+          })
+          .finally(() => {
+            setSettingsOpen(true);
+          });
       };
 
       const handleSaveSettings = () => {
@@ -882,12 +924,17 @@ window.__ModuleLoader__.load({
         saveConfig(tempConfig);
         setSettingsOpen(false);
 
-        // Also notify backend
+        // Notify backend to write to permanent disk storage
         fetch('/api/voice-input/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(tempConfig)
-        }).catch(() => {});
+        }).then(res => res.json()).then(data => {
+          if (data && data.ok && data.config) {
+            setConfig(data.config);
+            saveConfig(data.config);
+          }
+        }).catch(err => console.warn('[voice-input] Failed to sync config with host', err));
       };
 
       return h('div', { className: 'dsh-vr-container' },
