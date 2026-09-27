@@ -94,7 +94,7 @@ You can also use DeepSeek Harness directly through any web browser (Google Chrom
 
 1. Clone or copy this repository into your workspace or plugins directory:
    ```bash
-   git clone https://github.com/likhonmain/dsh-voice-input.git
+   git clone https://github.com/likhonmain/voice-input.git
    ```
 
 2. Install the bundle using the Harness Plugin Manager or CLI:
