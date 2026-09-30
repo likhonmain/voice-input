@@ -75,6 +75,40 @@ function saveDiskConfig(cfg) {
   }
 }
 
+function getCrashedRecordingDir() {
+  const candidateDirs = [
+    'D:\\Deepseek\\Pluggin\\voice-input\\Crashed Recording',
+    path.join(process.cwd(), 'Crashed Recording'),
+    process.env.APPDATA ? path.join(process.env.APPDATA, 'dsh-desktop', 'Crashed Recording') : null
+  ].filter(Boolean);
+
+  for (const dir of candidateDirs) {
+    try {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      return dir;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function saveCrashedRecording(audioBuffer, format) {
+  try {
+    const crashDir = getCrashedRecordingDir();
+    if (crashDir && audioBuffer && audioBuffer.length > 0) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `crashed_recording_${timestamp}.${format || 'wav'}`;
+      const filePath = path.join(crashDir, filename);
+      fs.writeFileSync(filePath, audioBuffer);
+      return { filename, filePath };
+    }
+  } catch (err) {
+    console.warn('[voice-input] Failed to save crashed recording', err);
+  }
+  return null;
+}
+
 export function apply(ctx, config) {
   let currentConfig = loadDiskConfig() || normalizeConfig(null, config);
 
@@ -188,14 +222,6 @@ export function apply(ctx, config) {
             }
 
             const audioBuffer = Buffer.from(audioBase64, 'base64');
-
-            // Automatic emergency backup to disk so audio is never lost
-            try {
-              const backupDir = process.env.APPDATA ? path.join(process.env.APPDATA, 'dsh-desktop') : (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, '.dsh') : process.cwd());
-              if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-              fs.writeFileSync(path.join(backupDir, 'last_recording.wav'), audioBuffer);
-            } catch (err) {}
-
             let transcribedText = '';
             const errors = [];
             const systemPrompt = "You are an expert transcriber and translator. Translate or transcribe the exact meaning of the audio into clean English. Remove any spoken filler words, stutters, repetitions, and hesitation marks (like 'um', 'uh', 'you know'). Do NOT add any summaries, conversational responses, or formatting. Output ONLY the raw, clean translated text.";
@@ -341,11 +367,16 @@ export function apply(ctx, config) {
             }
 
             if (transcribedText) {
+              // Successfully transcribed - no backup needed
               sendJson(res, 200, { ok: true, text: transcribedText });
             } else {
+              // Issue occurred! Save audio into 'Crashed Recording' folder
+              const backup = saveCrashedRecording(audioBuffer, format);
               sendJson(res, 502, {
                 ok: false,
-                error: errors.join('; ') || 'Transcription failed across all attempts'
+                error: errors.join('; ') || 'Transcription failed across all attempts',
+                crashedFile: backup ? backup.filename : null,
+                crashedDir: backup ? 'Crashed Recording' : null
               });
             }
             return;

@@ -974,7 +974,11 @@ window.__ModuleLoader__.load({
           const data = await res.json();
 
           if (!res.ok || !data.ok) {
-            throw new Error(data.error || `HTTP ${res.status}`);
+            let errMsg = data.error || `HTTP ${res.status}`;
+            if (data.crashedFile) {
+              errMsg += `\n[Audio saved in: Crashed Recording/${data.crashedFile}]`;
+            }
+            throw new Error(errMsg);
           }
 
           const transcribedText = (data.text || '').trim();

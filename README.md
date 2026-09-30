@@ -20,6 +20,10 @@ A feature-rich, high-performance voice recording and transcription plugin for **
 - **Discard / Cancel**: Discard the recording at any stage with a single click.
 - **Direct Send**: Click **Send** while recording or during review. Audio is converted to standard 16kHz mono WAV in the browser and forwarded to your active provider engine.
 - **Auto Draft Insertion**: Transcribed text is automatically inserted directly into your conversation draft.
+- **Fail-Safe "Crashed Recording" Protection**:
+  - If a transcription request fails (due to HTTP 429 quota exhaustion, network issues, or proxy timeouts), the raw audio is automatically saved to the `Crashed Recording/` directory inside the project folder so your speech is never lost.
+  - If transcription succeeds, the audio is automatically discarded, keeping your disk clean and clutter-free.
+  - In addition, an explicit **Download button (⬇)** is always available on the toolbar during review mode.
 - **Interactive Settings Modal**: Clean, centered modal with Show/Hide API key toggle, provider management, and Escape key dismissal.
 
 ---

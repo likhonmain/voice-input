@@ -6,3 +6,10 @@ Thumbs.db
 .config.json
 voice-input-config.json
 *.env
+Crashed Recording/
+Crashed Recording/*
+*.wav
+*.webm
+*.mp3
+*.ogg
+*.m4a
