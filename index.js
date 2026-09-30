@@ -188,6 +188,14 @@ export function apply(ctx, config) {
             }
 
             const audioBuffer = Buffer.from(audioBase64, 'base64');
+
+            // Automatic emergency backup to disk so audio is never lost
+            try {
+              const backupDir = process.env.APPDATA ? path.join(process.env.APPDATA, 'dsh-desktop') : (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, '.dsh') : process.cwd());
+              if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+              fs.writeFileSync(path.join(backupDir, 'last_recording.wav'), audioBuffer);
+            } catch (err) {}
+
             let transcribedText = '';
             const errors = [];
             const systemPrompt = "You are an expert transcriber and translator. Translate or transcribe the exact meaning of the audio into clean English. Remove any spoken filler words, stutters, repetitions, and hesitation marks (like 'um', 'uh', 'you know'). Do NOT add any summaries, conversational responses, or formatting. Output ONLY the raw, clean translated text.";

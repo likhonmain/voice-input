@@ -212,6 +212,18 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function IconDownload() {
+      return h('svg', {
+        viewBox: '0 0 24 24', width: 13, height: 13,
+        fill: 'none', stroke: 'currentColor', strokeWidth: 2,
+        strokeLinecap: 'round', strokeLinejoin: 'round'
+      },
+        h('path', { d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' }),
+        h('polyline', { points: '7 10 12 15 17 10' }),
+        h('line', { x1: 12, y1: 15, x2: 12, y2: 3 })
+      );
+    }
+
     const STYLES = `
       .dsh-vr-container {
         display: inline-flex;
@@ -875,6 +887,18 @@ window.__ModuleLoader__.load({
         }
       };
 
+      const downloadAudio = () => {
+        const b = audioBlob;
+        if (!b && !audioUrl) return;
+        const url = audioUrl || URL.createObjectURL(b);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `voice_recording_${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      };
+
       // Send recording to backend proxy
       const sendRecording = async () => {
         cleanupAudioPlayer();
@@ -1365,6 +1389,19 @@ window.__ModuleLoader__.load({
             'aria-label': 'Stop playback',
             onClick: stopAudio
           }, h(IconStop)),
+          h('button', {
+            className: 'dsh-vr-btn',
+            title: 'Download audio file to computer',
+            'aria-label': 'Download audio',
+            onClick: downloadAudio
+          }, h(IconDownload)),
+          h('button', {
+            className: 'dsh-vr-btn',
+            style: { width: 22, minWidth: 22, height: 22, opacity: 0.75 },
+            title: `Engine settings [${activeProvider.name}]`,
+            'aria-label': 'Settings',
+            onClick: openSettings
+          }, h(IconGear)),
           h('button', {
             className: 'dsh-vr-btn dsh-vr-btn-danger',
             title: 'Discard audio',
