@@ -6,32 +6,35 @@ A feature-rich, high-performance voice recording and transcription plugin for **
 
 ## ✨ Features
 
-- **Toolbar Integration**: Docked right beside the model selector in the composer toolbar.
+- **Toolbar Integration**: Docked right beside the model selector in the composer toolbar without jumping across the input row.
+- **Multiple AI Engines / Providers**:
+  - Save and manage multiple transcription backends (e.g. Gemini 3.8 Flash Proxy, OpenAI Whisper, Groq, local vLLM).
+  - Each engine has its own **Display Name**, **Provider API Base URL**, **API Key**, and **Model ID**.
+  - Switch active engines instantly via the quick-switch chip on the toolbar or inside the Settings modal.
+  - Add, edit, or delete provider engines with ease.
+- **Permanent Host Disk Persistence**: Credentials and provider profiles are stored on the local disk (`%APPDATA%\dsh-desktop\voice-input-config.json`) and synchronized with the browser, remaining preserved across restarts and port changes.
 - **One-Click Recording**: Click the microphone icon to begin recording audio immediately.
 - **Real-time Recording Timer**: Live elapsed time counter (`MM:SS`) with a visual recording indicator.
 - **Pause & Resume**: Pause recording anytime, and resume right from where you stopped.
 - **Audio Playback & Review**: Listen to what you recorded before sending. Includes Play, Pause Playback, and Stop Playback controls.
 - **Discard / Cancel**: Discard the recording at any stage with a single click.
-- **Direct Send**: Click **Send** while recording or during review. The audio is converted to standard 16kHz mono WAV in the browser and forwarded to your configured provider.
+- **Direct Send**: Click **Send** while recording or during review. Audio is converted to standard 16kHz mono WAV in the browser and forwarded to your active provider engine.
 - **Auto Draft Insertion**: Transcribed text is automatically inserted directly into your conversation draft.
-- **Custom Provider & Model Settings**:
-  - Easily configure your **Provider API Base URL**, **API Key**, and **Model ID** directly from the UI via the ⚙ (gear) icon.
-  - Includes a Show/Hide toggle for the API key.
-  - Preferences persist across sessions in local storage.
+- **Interactive Settings Modal**: Clean, centered modal with Show/Hide API key toggle, provider management, and Escape key dismissal.
 
 ---
 
 ## 📦 What Is Included vs. What Is Not
 
 ### Included:
-- **Client Web UI Module (`client.js`)**: Pure JavaScript component that mounts into the `conversation.input.activity` slot, managing recording, timers, playback, and settings modal.
-- **Host Backend Service (`index.js`)**: Fast Node.js service that hosts `/api/voice-input/transcribe` and `/api/voice-input/config`, forwarding audio to your OpenAI-compatible endpoint.
+- **Client Web UI Module (`client.js`)**: Pure JavaScript component that mounts into the `conversation.input.activity` slot, managing recording, timers, playback, engine switching, and the settings modal.
+- **Host Backend Service (`index.js`)**: Fast Node.js service that hosts `/api/voice-input/transcribe` and `/api/voice-input/config`, managing disk persistence and forwarding audio to your OpenAI-compatible endpoint.
 - **Multi-Modal & Whisper Fallback**: Supports both OpenAI Chat Completions with `input_audio` (e.g. Gemini 3.8 / GPT-4o multimodal models) and traditional `/v1/audio/transcriptions` (Whisper endpoints).
 - **Desktop Microphone Enabler Utility (`enable-desktop-mic.cjs`)**: Automates patching the DeepSeek Harness Desktop Electron app on Windows to grant media/microphone access.
 
 ### NOT Included:
 - **No API Keys or Private URLs**: By default, no API keys or backend URLs are bundled. You must supply your own provider endpoint and credentials in the Settings modal.
-- **No Heavy Native Dependencies**: Uses native browser Web Audio API (`AudioContext`, `MediaRecorder`) and Node.js standard built-ins (`fetch`, `Buffer`, `Blob`).
+- **No Heavy Native Dependencies**: Uses native browser Web Audio API (`AudioContext`, `MediaRecorder`) and Node.js standard built-ins (`fetch`, `Buffer`, `Blob`, `fs`).
 
 ---
 
@@ -102,10 +105,9 @@ You can also use DeepSeek Harness directly through any web browser (Google Chrom
    - Or install via profile manifest.
 
 3. Open Settings by clicking the **⚙ (gear)** icon next to the microphone icon in the composer bar:
-   - **Provider API Base URL**: (e.g., `http://your-proxy-host:8000/v1`)
-   - **API Key**: (e.g., `your-api-key`)
-   - **Model ID**: (e.g., `gemini-3.8-flash-high`)
-4. Click **Save** and start speaking!
+   - Configure one or more **AI Engines** with their **Provider API Base URL**, **API Key**, and **Model ID**.
+   - Choose which engine is **Active**.
+4. Click **Save All Engines** and start speaking!
 
 ---
 

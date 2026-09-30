@@ -5,32 +5,63 @@ window.__ModuleLoader__.load({
     const { createElement: h, useState, useEffect, useRef, useCallback } = React;
 
     const DEFAULT_CONFIG = {
-      url: '',
-      apiKey: '',
-      model: 'gemini-3.8-flash-high'
+      activeProviderId: 'default',
+      providers: [
+        {
+          id: 'default',
+          name: 'Default Engine',
+          url: '',
+          apiKey: '',
+          model: 'gemini-3.8-flash-high'
+        }
+      ]
     };
 
-    const STORAGE_KEY = 'dsh_voice_input_config';
+    const STORAGE_KEY = 'dsh_voice_input_config_v2';
+
+    function normalizeClientConfig(raw) {
+      if (!raw || typeof raw !== 'object') {
+        return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+      }
+      let providers = Array.isArray(raw.providers) ? raw.providers.filter(p => p && typeof p === 'object') : [];
+      if (providers.length === 0) {
+        providers = [
+          {
+            id: 'default',
+            name: raw.name || 'Default Engine',
+            url: raw.url || '',
+            apiKey: raw.apiKey || '',
+            model: raw.model || 'gemini-3.8-flash-high'
+          }
+        ];
+      }
+      let activeId = raw.activeProviderId || providers[0]?.id || 'default';
+      if (!providers.some(p => p.id === activeId)) {
+        activeId = providers[0]?.id || 'default';
+      }
+      return { activeProviderId: activeId, providers };
+    }
 
     function loadSavedConfig() {
       try {
-        const item = window.localStorage.getItem(STORAGE_KEY);
+        const item = window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem('dsh_voice_input_config');
         if (item) {
           const parsed = JSON.parse(item);
-          return {
-            url: parsed.url || DEFAULT_CONFIG.url,
-            apiKey: parsed.apiKey || DEFAULT_CONFIG.apiKey,
-            model: parsed.model || DEFAULT_CONFIG.model
-          };
+          return normalizeClientConfig(parsed);
         }
       } catch (e) {}
-      return { ...DEFAULT_CONFIG };
+      return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     }
 
     function saveConfig(cfg) {
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
       } catch (e) {}
+    }
+
+    function getActiveProvider(cfg) {
+      const norm = normalizeClientConfig(cfg);
+      return norm.providers.find(p => p.id === norm.activeProviderId) || norm.providers[0];
     }
 
     function formatTime(seconds) {
@@ -88,7 +119,7 @@ window.__ModuleLoader__.load({
         }
         return new Blob([wavBuffer], { type: 'audio/wav' });
       } catch (e) {
-        console.warn('[voice-recorder] WAV conversion fallback', e);
+        console.warn('[voice-input] WAV conversion fallback', e);
         return blob;
       }
     }
@@ -192,7 +223,7 @@ window.__ModuleLoader__.load({
       .dsh-vr-idle-wrap {
         display: inline-flex;
         align-items: center;
-        gap: 3px;
+        gap: 4px;
       }
       .dsh-vr-btn {
         display: inline-flex;
@@ -215,6 +246,27 @@ window.__ModuleLoader__.load({
       }
       .dsh-vr-btn:active {
         opacity: 0.8;
+      }
+      .dsh-vr-engine-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 26px;
+        padding: 0 8px;
+        border-radius: 6px;
+        border: 1px solid var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.1));
+        background: var(--dsw-alias-bg-layer-1, #252528);
+        color: var(--dsw-alias-label-secondary, #aaa);
+        font-size: 11px;
+        cursor: pointer;
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dsh-vr-engine-chip:hover {
+        background: var(--dsw-alias-bg-layer-2, #333);
+        color: var(--dsw-alias-label-primary, #eee);
       }
       .dsh-vr-btn-send {
         display: inline-flex !important;
@@ -371,8 +423,8 @@ window.__ModuleLoader__.load({
         justify-content: center;
       }
       .dsh-vr-modal-card {
-        width: 440px;
-        max-width: 90vw;
+        width: 480px;
+        max-width: 92vw;
         background: var(--dsw-alias-bg-overlay, #1e1e20);
         border: 1px solid var(--dsw-alias-border-l2, rgba(255, 255, 255, 0.15));
         border-radius: 12px;
@@ -385,7 +437,7 @@ window.__ModuleLoader__.load({
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 18px;
+        margin-bottom: 16px;
         padding-bottom: 10px;
         border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.1));
       }
@@ -412,6 +464,45 @@ window.__ModuleLoader__.load({
       .dsh-vr-modal-close-btn:hover {
         background: var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, 0.1));
         color: var(--dsw-alias-label-primary, #fff);
+      }
+      .dsh-vr-select {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        font-size: 13px;
+        border-radius: 6px;
+        border: 1px solid var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.15));
+        background: var(--dsw-alias-bg-layer-2, #2a2a2e);
+        color: var(--dsw-alias-label-primary, #eee);
+        outline: none;
+        cursor: pointer;
+      }
+      .dsh-vr-select:focus {
+        border-color: var(--dsw-alias-brand-primary, #2080f0);
+      }
+      .dsh-vr-engine-manager {
+        background: var(--dsw-alias-bg-layer-1, rgba(255, 255, 255, 0.04));
+        border: 1px solid var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.08));
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 16px;
+      }
+      .dsh-vr-engine-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .dsh-vr-badge-active {
+        display: inline-flex;
+        align-items: center;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: rgba(37, 99, 235, 0.2);
+        color: #60a5fa;
+        border: 1px solid rgba(59, 130, 246, 0.3);
       }
       .dsh-vr-form-group {
         margin-bottom: 14px;
@@ -460,8 +551,8 @@ window.__ModuleLoader__.load({
         filter: brightness(1.15);
       }
       .dsh-vr-modal-btn-save {
-        background: var(--dsw-alias-brand-primary, #2080f0);
-        border-color: var(--dsw-alias-brand-primary, #2080f0);
+        background: #2563eb;
+        border-color: #1d4ed8;
         color: #fff;
         font-weight: 500;
       }
@@ -507,10 +598,11 @@ window.__ModuleLoader__.load({
     `;
 
     function VoiceRecorder({ onActiveChange, inputActions, sessionId }) {
-      const [config, setConfig] = useState(loadSavedConfig);
+      const [config, setConfig] = useState(() => normalizeClientConfig(loadSavedConfig()));
       const [settingsOpen, setSettingsOpen] = useState(false);
       const [showApiKey, setShowApiKey] = useState(false);
       const [tempConfig, setTempConfig] = useState(config);
+      const [selectedEditId, setSelectedEditId] = useState(() => config.activeProviderId);
 
       // Status: 'idle' | 'recording' | 'recording_paused' | 'review' | 'sending' | 'success'
       const [mode, setMode] = useState('idle');
@@ -532,6 +624,11 @@ window.__ModuleLoader__.load({
       const timerRef = useRef(null);
       const audioPlayerRef = useRef(null);
 
+      const activeProvider = getActiveProvider(config);
+      const editingProvider = tempConfig.providers.find(p => p.id === selectedEditId) || tempConfig.providers[0] || {
+        id: 'default', name: 'Default Engine', url: '', apiKey: '', model: 'gemini-3.8-flash-high'
+      };
+
       // Keep onActiveChange(false) so the toolbar doesn't push the controls left or hide the model selector!
       useEffect(() => {
         if (typeof onActiveChange === 'function') {
@@ -545,16 +642,9 @@ window.__ModuleLoader__.load({
           .then(res => res.json())
           .then(data => {
             if (data && data.ok && data.config) {
-              const serverConfig = data.config;
-              setConfig(prev => {
-                const merged = {
-                  url: serverConfig.url || prev.url || '',
-                  apiKey: serverConfig.apiKey || prev.apiKey || '',
-                  model: serverConfig.model || prev.model || 'gemini-3.8-flash-high'
-                };
-                saveConfig(merged);
-                return merged;
-              });
+              const normalized = normalizeClientConfig(data.config);
+              setConfig(normalized);
+              saveConfig(normalized);
             }
           })
           .catch(() => {});
@@ -670,7 +760,7 @@ window.__ModuleLoader__.load({
             setRecordSeconds(sec => sec + 1);
           }, 1000);
         } catch (err) {
-          console.error('[voice-recorder] Failed to start microphone', err);
+          console.error('[voice-input] Failed to start microphone', err);
           const isPerm = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || String(err).includes('Permission denied');
           setIsPermissionError(isPerm);
           setErrorMsg(err.message || String(err));
@@ -757,14 +847,14 @@ window.__ModuleLoader__.load({
         };
 
         player.onerror = (e) => {
-          console.warn('[voice-recorder] Playback error', e);
+          console.warn('[voice-input] Playback error', e);
           setPlaybackState('stopped');
         };
 
         player.play().then(() => {
           setPlaybackState('playing');
         }).catch(err => {
-          console.warn('[voice-recorder] Playback prevented', err);
+          console.warn('[voice-input] Playback prevented', err);
           setPlaybackState('stopped');
         });
       };
@@ -828,12 +918,20 @@ window.__ModuleLoader__.load({
           return;
         }
 
+        const currentActive = getActiveProvider(config);
+        if (!currentActive.url || !currentActive.apiKey) {
+          setErrorMsg(`Please configure Provider URL & API Key for "${currentActive.name}" in Settings (⚙).`);
+          openSettings();
+          setMode('review');
+          return;
+        }
+
         try {
           setStatusMsg('Converting audio to WAV...');
           const wavBlob = await convertToWavBlob(blobToSend);
           const base64 = await blobToBase64(wavBlob);
 
-          setStatusMsg(`Transcribing with ${config.model}...`);
+          setStatusMsg(`Transcribing with ${currentActive.name || currentActive.model}...`);
 
           const res = await fetch('/api/voice-input/transcribe', {
             method: 'POST',
@@ -843,9 +941,9 @@ window.__ModuleLoader__.load({
             body: JSON.stringify({
               audioBase64: base64,
               format: 'wav',
-              url: config.url,
-              apiKey: config.apiKey,
-              model: config.model
+              url: currentActive.url,
+              apiKey: currentActive.apiKey,
+              model: currentActive.model
             })
           });
 
@@ -886,7 +984,7 @@ window.__ModuleLoader__.load({
             cleanupAll();
           }, 2000);
         } catch (err) {
-          console.error('[voice-recorder] Send failed', err);
+          console.error('[voice-input] Send failed', err);
           setErrorMsg('Transcription failed: ' + (err.message || String(err)));
           setMode('review');
         }
@@ -898,21 +996,19 @@ window.__ModuleLoader__.load({
           .then(res => res.json())
           .then(data => {
             if (data && data.ok && data.config) {
-              const serverConfig = data.config;
-              const merged = {
-                url: serverConfig.url || config.url || '',
-                apiKey: serverConfig.apiKey || config.apiKey || '',
-                model: serverConfig.model || config.model || 'gemini-3.8-flash-high'
-              };
-              setConfig(merged);
-              setTempConfig(merged);
-              saveConfig(merged);
+              const normalized = normalizeClientConfig(data.config);
+              setConfig(normalized);
+              setTempConfig(JSON.parse(JSON.stringify(normalized)));
+              setSelectedEditId(normalized.activeProviderId);
+              saveConfig(normalized);
             } else {
-              setTempConfig({ ...config });
+              setTempConfig(JSON.parse(JSON.stringify(config)));
+              setSelectedEditId(config.activeProviderId);
             }
           })
           .catch(() => {
-            setTempConfig({ ...config });
+            setTempConfig(JSON.parse(JSON.stringify(config)));
+            setSelectedEditId(config.activeProviderId);
           })
           .finally(() => {
             setSettingsOpen(true);
@@ -920,21 +1016,79 @@ window.__ModuleLoader__.load({
       };
 
       const handleSaveSettings = () => {
-        setConfig(tempConfig);
-        saveConfig(tempConfig);
+        const normalized = normalizeClientConfig(tempConfig);
+        setConfig(normalized);
+        saveConfig(normalized);
         setSettingsOpen(false);
 
         // Notify backend to write to permanent disk storage
         fetch('/api/voice-input/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(tempConfig)
+          body: JSON.stringify(normalized)
         }).then(res => res.json()).then(data => {
           if (data && data.ok && data.config) {
-            setConfig(data.config);
-            saveConfig(data.config);
+            const serverNorm = normalizeClientConfig(data.config);
+            setConfig(serverNorm);
+            saveConfig(serverNorm);
           }
         }).catch(err => console.warn('[voice-input] Failed to sync config with host', err));
+      };
+
+      const handleAddNewEngine = () => {
+        const newId = 'engine_' + Date.now().toString(36);
+        const newEngine = {
+          id: newId,
+          name: 'AI Engine ' + (tempConfig.providers.length + 1),
+          url: '',
+          apiKey: '',
+          model: 'gemini-3.8-flash-high'
+        };
+        const updated = {
+          ...tempConfig,
+          providers: [...tempConfig.providers, newEngine]
+        };
+        setTempConfig(updated);
+        setSelectedEditId(newId);
+      };
+
+      const handleDeleteCurrentEngine = () => {
+        if (tempConfig.providers.length <= 1) return;
+        const remaining = tempConfig.providers.filter(p => p.id !== selectedEditId);
+        const nextActive = tempConfig.activeProviderId === selectedEditId ? remaining[0].id : tempConfig.activeProviderId;
+        const updated = {
+          activeProviderId: nextActive,
+          providers: remaining
+        };
+        setTempConfig(updated);
+        setSelectedEditId(remaining[0].id);
+      };
+
+      const updateCurrentEngineField = (field, val) => {
+        const updatedProviders = tempConfig.providers.map(p => {
+          if (p.id === selectedEditId) {
+            return { ...p, [field]: val };
+          }
+          return p;
+        });
+        setTempConfig({
+          ...tempConfig,
+          providers: updatedProviders
+        });
+      };
+
+      const handleQuickSwitchEngine = (newId) => {
+        const updated = {
+          ...config,
+          activeProviderId: newId
+        };
+        setConfig(updated);
+        saveConfig(updated);
+        fetch('/api/voice-input/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated)
+        }).catch(() => {});
       };
 
       return h('div', { className: 'dsh-vr-container' },
@@ -951,7 +1105,7 @@ window.__ModuleLoader__.load({
             h('div', { className: 'dsh-vr-modal-header' },
               h('div', { className: 'dsh-vr-modal-title' },
                 h(IconGear),
-                h('span', null, 'Voice Provider Settings')
+                h('span', null, 'AI Engines & Providers')
               ),
               h('button', {
                 className: 'dsh-vr-modal-close-btn',
@@ -960,14 +1114,70 @@ window.__ModuleLoader__.load({
                 onClick: () => setSettingsOpen(false)
               }, h(IconClose))
             ),
+
+            // Engine Selection & Management Bar
+            h('div', { className: 'dsh-vr-engine-manager' },
+              h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
+                h('label', { className: 'dsh-vr-label', style: { marginBottom: 0 } }, 'Saved Engines / Models'),
+                h('div', { style: { display: 'flex', gap: 6 } },
+                  h('button', {
+                    type: 'button',
+                    className: 'dsh-vr-btn',
+                    style: { height: 24, fontSize: 11, padding: '0 8px', background: 'rgba(255,255,255,0.08)' },
+                    title: 'Add new engine',
+                    onClick: handleAddNewEngine
+                  }, '+ Add Engine'),
+                  tempConfig.providers.length > 1 && h('button', {
+                    type: 'button',
+                    className: 'dsh-vr-btn dsh-vr-btn-danger',
+                    style: { height: 24, fontSize: 11, padding: '0 8px' },
+                    title: 'Delete this engine',
+                    onClick: handleDeleteCurrentEngine
+                  }, 'Delete')
+                )
+              ),
+              h('div', { className: 'dsh-vr-engine-row' },
+                h('select', {
+                  className: 'dsh-vr-select',
+                  value: selectedEditId,
+                  onChange: (e) => setSelectedEditId(e.target.value)
+                },
+                  tempConfig.providers.map(p =>
+                    h('option', { key: p.id, value: p.id },
+                      (p.name || 'Unnamed Engine') + (p.id === tempConfig.activeProviderId ? ' ★ (Active)' : '') + (p.model ? ` — ${p.model}` : '')
+                    )
+                  )
+                )
+              ),
+              h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 } },
+                selectedEditId === tempConfig.activeProviderId ? h('span', { className: 'dsh-vr-badge-active' }, '★ Currently Active Engine') : h('button', {
+                  type: 'button',
+                  className: 'dsh-vr-modal-btn',
+                  style: { padding: '3px 10px', fontSize: 11, background: '#2563eb', color: '#fff', border: 'none' },
+                  onClick: () => setTempConfig({ ...tempConfig, activeProviderId: selectedEditId })
+                }, 'Set as Active Engine')
+              )
+            ),
+
+            // Provider Form Fields
+            h('div', { className: 'dsh-vr-form-group' },
+              h('label', { className: 'dsh-vr-label' }, 'Engine Display Name'),
+              h('input', {
+                className: 'dsh-vr-input',
+                type: 'text',
+                value: editingProvider.name || '',
+                placeholder: 'e.g. Gemini 3.8 Flash Proxy',
+                onChange: (e) => updateCurrentEngineField('name', e.target.value)
+              })
+            ),
             h('div', { className: 'dsh-vr-form-group' },
               h('label', { className: 'dsh-vr-label' }, 'Provider API Base URL'),
               h('input', {
                 className: 'dsh-vr-input',
                 type: 'text',
-                value: tempConfig.url,
+                value: editingProvider.url || '',
                 placeholder: 'http://your-provider-host:8000/v1',
-                onChange: (e) => setTempConfig({ ...tempConfig, url: e.target.value })
+                onChange: (e) => updateCurrentEngineField('url', e.target.value)
               })
             ),
             h('div', { className: 'dsh-vr-form-group' },
@@ -982,9 +1192,9 @@ window.__ModuleLoader__.load({
               h('input', {
                 className: 'dsh-vr-input',
                 type: showApiKey ? 'text' : 'password',
-                value: tempConfig.apiKey,
+                value: editingProvider.apiKey || '',
                 placeholder: 'your-api-key',
-                onChange: (e) => setTempConfig({ ...tempConfig, apiKey: e.target.value })
+                onChange: (e) => updateCurrentEngineField('apiKey', e.target.value)
               })
             ),
             h('div', { className: 'dsh-vr-form-group' },
@@ -992,9 +1202,9 @@ window.__ModuleLoader__.load({
               h('input', {
                 className: 'dsh-vr-input',
                 type: 'text',
-                value: tempConfig.model,
+                value: editingProvider.model || '',
                 placeholder: 'gemini-3.8-flash-high',
-                onChange: (e) => setTempConfig({ ...tempConfig, model: e.target.value })
+                onChange: (e) => updateCurrentEngineField('model', e.target.value)
               })
             ),
             h('div', { className: 'dsh-vr-modal-footer' },
@@ -1003,13 +1213,9 @@ window.__ModuleLoader__.load({
                 onClick: () => setSettingsOpen(false)
               }, 'Cancel'),
               h('button', {
-                className: 'dsh-vr-modal-btn',
-                onClick: () => setTempConfig({ ...DEFAULT_CONFIG })
-              }, 'Reset Defaults'),
-              h('button', {
                 className: 'dsh-vr-modal-btn dsh-vr-modal-btn-save',
                 onClick: handleSaveSettings
-              }, 'Save')
+              }, 'Save All Engines')
             )
           )
         ),
@@ -1018,7 +1224,7 @@ window.__ModuleLoader__.load({
         errorMsg && h('div', { className: 'dsh-vr-error-toast' },
           h('div', { className: 'dsh-vr-error-header' },
             h('span', { className: 'dsh-vr-error-title' },
-              isPermissionError ? 'Microphone Permission Notice' : 'Voice Recorder Error'
+              isPermissionError ? 'Microphone Permission Notice' : 'Voice Input Notice'
             ),
             h('button', {
               className: 'dsh-vr-modal-close-btn',
@@ -1049,14 +1255,27 @@ window.__ModuleLoader__.load({
         mode === 'idle' && h('div', { className: 'dsh-vr-idle-wrap' },
           h('button', {
             className: 'dsh-vr-btn',
-            title: `Voice record (${config.model})`,
+            title: `Record voice [${activeProvider.name}: ${activeProvider.model}]`,
             'aria-label': 'Record voice',
             onClick: startRecording
           }, h(IconMic)),
+
+          // Quick Engine Switcher if multiple providers exist
+          config.providers.length > 1 && h('select', {
+            className: 'dsh-vr-engine-chip',
+            value: config.activeProviderId,
+            title: `Active Engine: ${activeProvider.name} (${activeProvider.model})`,
+            onChange: (e) => handleQuickSwitchEngine(e.target.value)
+          },
+            config.providers.map(p =>
+              h('option', { key: p.id, value: p.id }, p.name || p.model)
+            )
+          ),
+
           h('button', {
             className: 'dsh-vr-btn',
             style: { width: 22, minWidth: 22, height: 22, opacity: 0.65 },
-            title: 'Voice settings (URL, Key, Model)',
+            title: `Engine Settings [${activeProvider.name}]`,
             'aria-label': 'Voice settings',
             onClick: openSettings
           }, h(IconGear))
@@ -1086,7 +1305,7 @@ window.__ModuleLoader__.load({
           }, h(IconClose)),
           h('button', {
             className: 'dsh-vr-btn-send',
-            title: 'Send voice now',
+            title: `Send voice to ${activeProvider.name}`,
             'aria-label': 'Send voice',
             onClick: sendRecording
           }, h(IconSend), h('span', { style: { marginLeft: 4 } }, 'Send'))
@@ -1117,7 +1336,7 @@ window.__ModuleLoader__.load({
           }, h(IconClose)),
           h('button', {
             className: 'dsh-vr-btn-send',
-            title: 'Send voice now',
+            title: `Send voice to ${activeProvider.name}`,
             'aria-label': 'Send voice',
             onClick: sendRecording
           }, h(IconSend), h('span', { style: { marginLeft: 4 } }, 'Send'))
@@ -1154,7 +1373,7 @@ window.__ModuleLoader__.load({
           }, h(IconClose)),
           h('button', {
             className: 'dsh-vr-btn-send',
-            title: 'Send voice for transcription',
+            title: `Send voice to ${activeProvider.name}`,
             'aria-label': 'Send voice',
             onClick: sendRecording
           }, h(IconSend), h('span', { style: { marginLeft: 4 } }, 'Send'))

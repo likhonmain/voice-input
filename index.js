@@ -16,6 +16,37 @@ function getConfigFilePaths() {
   return paths;
 }
 
+function normalizeConfig(raw, fallbackConfig = {}) {
+  let providers = Array.isArray(raw?.providers) ? raw.providers.filter(p => p && typeof p === 'object') : [];
+  
+  if (providers.length === 0) {
+    providers = [
+      {
+        id: 'default',
+        name: 'Default Engine',
+        url: (raw?.url || fallbackConfig?.url || '').replace(/\/+$/, ''),
+        apiKey: raw?.apiKey || fallbackConfig?.apiKey || '',
+        model: raw?.model || fallbackConfig?.model || 'gemini-3.8-flash-high'
+      }
+    ];
+  }
+
+  let activeProviderId = raw?.activeProviderId || providers[0]?.id || 'default';
+  if (!providers.some(p => p.id === activeProviderId)) {
+    activeProviderId = providers[0]?.id || 'default';
+  }
+
+  const active = providers.find(p => p.id === activeProviderId) || providers[0];
+
+  return {
+    activeProviderId,
+    providers,
+    url: active.url || '',
+    apiKey: active.apiKey || '',
+    model: active.model || 'gemini-3.8-flash-high'
+  };
+}
+
 function loadDiskConfig() {
   for (const p of getConfigFilePaths()) {
     try {
@@ -23,7 +54,7 @@ function loadDiskConfig() {
         const raw = fs.readFileSync(p, 'utf8');
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
-          return parsed;
+          return normalizeConfig(parsed);
         }
       }
     } catch (e) {}
@@ -45,12 +76,7 @@ function saveDiskConfig(cfg) {
 }
 
 export function apply(ctx, config) {
-  const diskConfig = loadDiskConfig() || {};
-  const currentConfig = {
-    url: (diskConfig.url || config?.url || '').replace(/\/+$/, ''),
-    apiKey: diskConfig.apiKey || config?.apiKey || '',
-    model: diskConfig.model || config?.model || 'gemini-3.8-flash-high'
-  };
+  let currentConfig = loadDiskConfig() || normalizeConfig(null, config);
 
   const parseJsonBody = (req) => new Promise((resolve, reject) => {
     let body = '';
@@ -109,9 +135,21 @@ export function apply(ctx, config) {
             }
             if (req.method === 'POST') {
               const body = await parseJsonBody(req);
-              if (body.url !== undefined) currentConfig.url = String(body.url).trim().replace(/\/+$/, '');
-              if (body.apiKey !== undefined) currentConfig.apiKey = String(body.apiKey).trim();
-              if (body.model !== undefined) currentConfig.model = String(body.model).trim();
+              if (body.providers && Array.isArray(body.providers)) {
+                currentConfig = normalizeConfig(body);
+              } else {
+                const activeIdx = currentConfig.providers.findIndex(p => p.id === currentConfig.activeProviderId);
+                if (activeIdx !== -1) {
+                  if (body.name !== undefined) currentConfig.providers[activeIdx].name = String(body.name).trim();
+                  if (body.url !== undefined) currentConfig.providers[activeIdx].url = String(body.url).trim().replace(/\/+$/, '');
+                  if (body.apiKey !== undefined) currentConfig.providers[activeIdx].apiKey = String(body.apiKey).trim();
+                  if (body.model !== undefined) currentConfig.providers[activeIdx].model = String(body.model).trim();
+                }
+                if (body.activeProviderId) {
+                  currentConfig.activeProviderId = body.activeProviderId;
+                }
+                currentConfig = normalizeConfig(currentConfig);
+              }
               saveDiskConfig(currentConfig);
               sendJson(res, 200, { ok: true, config: currentConfig });
               return;
@@ -128,9 +166,10 @@ export function apply(ctx, config) {
               return;
             }
 
-            const targetUrl = (body.url || currentConfig.url || '').replace(/\/+$/, '');
-            const apiKey = body.apiKey || currentConfig.apiKey || '';
-            const model = body.model || currentConfig.model || 'gemini-3.8-flash-high';
+            const activeProvider = currentConfig.providers.find(p => p.id === currentConfig.activeProviderId) || currentConfig.providers[0];
+            const targetUrl = (body.url || activeProvider?.url || '').replace(/\/+$/, '');
+            const apiKey = body.apiKey || activeProvider?.apiKey || '';
+            const model = body.model || activeProvider?.model || 'gemini-3.8-flash-high';
 
             if (!targetUrl) {
               sendJson(res, 400, {
