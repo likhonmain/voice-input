@@ -109,7 +109,38 @@ function saveCrashedRecording(audioBuffer, format) {
   return null;
 }
 
+function ensureDesktopMicPatched() {
+  try {
+    const localAppData = process.env.LOCALAPPDATA || (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Local') : '');
+    if (!localAppData) return;
+    const asarPath = path.join(localAppData, 'Programs', 'DSH Desktop', 'resources', 'app.asar');
+    if (!fs.existsSync(asarPath)) return;
+
+    const buf = fs.readFileSync(asarPath);
+    const patchedPattern = Buffer.from('/^(clipboard-sanitized-write|notifications|media)$/');
+    if (buf.indexOf(patchedPattern) !== -1) {
+      return;
+    }
+
+    const oldPattern = Buffer.from('(permission === "clipboard-sanitized-write" || permission === "notifications")');
+    const idx = buf.indexOf(oldPattern);
+    if (idx !== -1) {
+      const baseReplacement = '(/^(clipboard-sanitized-write|notifications|media)$/.test(permission))';
+      const replacementStr = baseReplacement.padEnd(oldPattern.length, ' ');
+      const replacementBuf = Buffer.from(replacementStr);
+      if (replacementBuf.length === oldPattern.length) {
+        replacementBuf.copy(buf, idx);
+        fs.writeFileSync(asarPath, buf);
+        console.log('[voice-input] Automatically patched DSH Desktop app.asar for media/microphone permission.');
+      }
+    }
+  } catch (err) {
+    // Non-critical, fail silent
+  }
+}
+
 export function apply(ctx, config) {
+  ensureDesktopMicPatched();
   let currentConfig = loadDiskConfig() || normalizeConfig(null, config);
 
   const parseJsonBody = (req) => new Promise((resolve, reject) => {
